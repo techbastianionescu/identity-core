@@ -57,5 +57,5 @@ This repository currently contains the initial architecture and will evolve duri
 
 ## Author
 
-Sebas  
+Andrei Sebastian Ionescu  
 DAM Final Degree Project
