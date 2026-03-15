@@ -1,61 +1,110 @@
-# identity-core
+# Identity Core
 
-Centralized authentication and identity management service for applications and services.
+Centralized authentication and user management API for web applications.
 
-This project is developed as a Final Degree Project (DAM) and aims to provide a reusable identity service capable of handling authentication, user management, roles and permissions for different types of clients such as web applications, mobile apps or backend services.
+Built as a Final Degree Project (DAM).
 
-## Project goals
+## What it does
 
-The main objective of this project is to build a centralized identity system that allows:
+Identity Core provides a complete authentication cycle that any web application can use as an independent security layer:
 
-- User registration and authentication
-- Role and permission management
-- Secure access to protected resources
-- Token-based authentication using JWT
-- Integration with different types of applications through an API
-
-## Architecture
-
-The system follows an API-first approach.
-
-Clients interact with the Identity Service through a REST API.
-
-```
-Client (Web / Mobile / Service)
-        │
-        ▼
-Identity API (FastAPI)
-        │
-        ▼
-PostgreSQL
-```
+- User registration with bcrypt-hashed passwords
+- Login with JWT token generation
+- Protected routes that require a valid token
+- Persistent storage with PostgreSQL
+- Full deployment with Docker Compose
 
 ## Tech Stack
 
-### Backend
-- Python
-- FastAPI
-- SQLAlchemy
-- PostgreSQL
-- JWT Authentication
+| Layer          | Technology                        |
+|----------------|-----------------------------------|
+| Language       | Python 3.12                       |
+| Framework      | FastAPI                           |
+| ORM            | SQLAlchemy                        |
+| Database       | PostgreSQL 16                     |
+| Auth           | JWT (python-jose) + bcrypt        |
+| Infrastructure | Docker + Docker Compose           |
 
-### Frontend
-- HTML
-- CSS
-- JavaScript
-- Jinja2 templates
+## Getting started
 
-### Infrastructure
+### Requirements
+
 - Docker
-- Uvicorn
-- Nginx
-- Deployment on a dedicated server
+- Docker Compose
+
+### Setup
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/techbastianionescu/identity-core
+cd identity-core
+```
+
+2. Create a `.env` file inside the `backend/` folder:
+
+```env
+DATABASE_URL=postgresql://{user}:{password}@db:5432/{db_name}
+SECRET_KEY={your-secret-key}
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+```
+
+3. Start the services:
+
+```bash
+docker-compose up --build
+```
+
+4. The API will be available at: `http://localhost:8000`
+
+Swagger docs: `http://localhost:8000/docs`
+
+## API Endpoints
+
+| Method | Endpoint           | Auth required | Description              |
+|--------|--------------------|---------------|--------------------------|
+| GET    | /health            | No            | Health check             |
+| POST   | /users/register    | No            | Register a new user      |
+| POST   | /auth/login        | No            | Login and get JWT token  |
+| GET    | /users/me          | Yes           | Get current user info    |
+
+## Project structure
+
+```
+identity-core/
+├── backend/
+│   ├── app/
+│   │   ├── models/        # SQLAlchemy models
+│   │   ├── schemas/       # Pydantic schemas
+│   │   ├── services/      # Business logic
+│   │   ├── routers/       # API endpoints
+│   │   ├── security/      # JWT + bcrypt + dependencies
+│   │   ├── database.py    # DB connection and session
+│   │   └── main.py        # App entry point
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── .env.example
+├── docker-compose.yml
+└── docs/
+    └── diario/            # Development diary (Spanish)
+```
 
 ## Project status
 
-This repository currently contains the initial architecture and will evolve during the development of the Final Degree Project.
+**Phase 1 (complete):**
+- User registration
+- JWT authentication
+- Protected routes
+- Docker deployment
+
+**Phase 2 (in progress):**
+- Role and permission management
+- Complete error handling
+- Admin panel (frontend)
+- Production deployment with Nginx
 
 ## Author
 
-Andrei Sebastian Ionescu  
+Andrei Sebastian Ionescu
 DAM Final Degree Project
