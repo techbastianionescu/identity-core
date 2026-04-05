@@ -1,11 +1,17 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 from app.models.role import Role
 from app.schemas.role import RoleCreate
 
 def create_role(db: Session, role_data: RoleCreate):
     db_role = Role(name=role_data.name)
     db.add(db_role)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Role already exists")
     db.refresh(db_role)
     return db_role
 
