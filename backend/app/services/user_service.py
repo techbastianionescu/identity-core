@@ -10,4 +10,11 @@ def create_user(db: Session, user_data: UserCreate) -> User:
     db.commit()
     db.refresh(db_user)
     return db_user
+
+def assign_role(db: Session, user_id: int, role_id: int) -> User:
+    user = db.query(User).filter(User.id == user_id).first()
+    user.role_id = role_id
+    db.commit()
+    db.refresh(user)
+    return user
     
