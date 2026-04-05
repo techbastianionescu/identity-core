@@ -10,5 +10,6 @@ class UserResponse(BaseModel):
     username: str
     email: str
     is_active: bool
+    role_id: int | None = None
     
     model_config = {"from_attributes": True}
