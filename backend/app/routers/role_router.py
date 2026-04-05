@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.schemas.role import RoleCreate, RoleResponse
 from app.services.role_service import create_role, get_roles, get_role_by_id
@@ -16,4 +16,8 @@ def list_roles(db: Session = Depends(get_db)):
 
 @router.get("/{role_id}", response_model=RoleResponse)
 def get_role(role_id: int, db: Session = Depends(get_db)):
-    return get_role_by_id(db, role_id)
+        role = get_role_by_id(db, role_id)
+        if role is None:
+            raise HTTPException(status_code=404, detail="Role not found")
+        return role
+        
