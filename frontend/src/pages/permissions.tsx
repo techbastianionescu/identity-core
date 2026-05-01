@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
-import { permissionApi } from "@/api/endpoints"
-import type { Permission } from "@/types"
+import { permissionApi, roleApi } from "@/api/endpoints"
+import type { Permission, Role } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Dialog,
@@ -21,6 +22,7 @@ import { PageHeader } from "@/components/page-header"
 
 export default function PermissionsPage() {
   const [permissions, setPermissions] = useState<Permission[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
@@ -30,7 +32,9 @@ export default function PermissionsPage() {
   const load = async () => {
     setLoading(true)
     try {
-      setPermissions(await permissionApi.list())
+      const [p, r] = await Promise.all([permissionApi.list(), roleApi.list()])
+      setPermissions(p)
+      setRoles(r)
     } finally {
       setLoading(false)
     }
@@ -39,6 +43,9 @@ export default function PermissionsPage() {
   useEffect(() => {
     load()
   }, [])
+
+  const rolesByPermission = (permissionId: number) =>
+    roles.filter((r) => r.permissions.some((p) => p.id === permissionId))
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault()
@@ -78,7 +85,8 @@ export default function PermissionsPage() {
                 <DialogHeader>
                   <DialogTitle>Crear permiso</DialogTitle>
                   <DialogDescription>
-                    Convención sugerida: <code className="text-xs">recurso:accion</code> (ej. <code className="text-xs">users:read</code>)
+                    Convención sugerida: <code className="text-xs">recurso:accion</code> (ej.{" "}
+                    <code className="text-xs">users:read</code>)
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -121,29 +129,48 @@ export default function PermissionsPage() {
               <TableHead className="w-16">ID</TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead>Descripción</TableHead>
+              <TableHead>Roles que lo usan</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : permissions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
                   No hay permisos
                 </TableCell>
               </TableRow>
             ) : (
-              permissions.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="text-muted-foreground">{p.id}</TableCell>
-                  <TableCell className="font-mono text-sm">{p.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{p.description || "—"}</TableCell>
-                </TableRow>
-              ))
+              permissions.map((p) => {
+                const usedBy = rolesByPermission(p.id)
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell className="text-muted-foreground">{p.id}</TableCell>
+                    <TableCell className="font-mono text-sm">{p.name}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {p.description || "—"}
+                    </TableCell>
+                    <TableCell>
+                      {usedBy.length === 0 ? (
+                        <span className="text-xs text-muted-foreground italic">Sin uso</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {usedBy.map((r) => (
+                            <Badge key={r.id} variant="secondary" className="text-xs">
+                              {r.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>

@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { Shield } from "lucide-react"
+import { Plus, Shield } from "lucide-react"
 import { toast } from "sonner"
 import { roleApi, userApi } from "@/api/endpoints"
 import type { Role, User } from "@/types"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -15,6 +16,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
 import { PageHeader } from "@/components/page-header"
 
@@ -22,6 +24,9 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
+
+  const [createOpen, setCreateOpen] = useState(false)
+  const [newUser, setNewUser] = useState({ username: "", email: "", password: "" })
 
   const [assignOpen, setAssignOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
@@ -48,6 +53,25 @@ export default function UsersPage() {
     return roles.find((r) => r.id === roleId)?.name ?? `id:${roleId}`
   }
 
+  const handleCreate = async (e: FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await userApi.register(newUser.username, newUser.email, newUser.password)
+      toast.success("Usuario creado")
+      setNewUser({ username: "", email: "", password: "" })
+      setCreateOpen(false)
+      await load()
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        "Error creando usuario"
+      toast.error(message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const handleAssign = async (e: FormEvent) => {
     e.preventDefault()
     if (!selectedUser || !selectedRoleId) return
@@ -71,7 +95,68 @@ export default function UsersPage() {
 
   return (
     <>
-      <PageHeader title="Usuarios" description="Lista de usuarios registrados en el sistema" />
+      <PageHeader
+        title="Usuarios"
+        description="Lista de usuarios registrados en el sistema"
+        actions={
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4" />
+                Nuevo usuario
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <form onSubmit={handleCreate}>
+                <DialogHeader>
+                  <DialogTitle>Crear usuario</DialogTitle>
+                  <DialogDescription>
+                    El usuario se creará sin rol asignado. Puedes asignárselo después.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Usuario</Label>
+                    <Input
+                      id="username"
+                      value={newUser.username}
+                      onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newUser.email}
+                      onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Contraseña</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={newUser.password}
+                      onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Creando..." : "Crear"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       <Card>
         <Table>

@@ -6,15 +6,16 @@ export interface User {
   role_id: number | null
 }
 
-export interface Role {
-  id: number
-  name: string
-}
-
 export interface Permission {
   id: number
   name: string
   description: string | null
+}
+
+export interface Role {
+  id: number
+  name: string
+  permissions: Permission[]
 }
 
 export interface LoginResponse {

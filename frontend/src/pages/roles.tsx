@@ -1,14 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { Plus, Link2 } from "lucide-react"
+import { Plus, Link2, Shield } from "lucide-react"
 import { toast } from "sonner"
-import { permissionApi, roleApi } from "@/api/endpoints"
-import type { Permission, Role } from "@/types"
+import { permissionApi, roleApi, userApi } from "@/api/endpoints"
+import type { Permission, Role, User } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Separator } from "@/components/ui/separator"
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,7 @@ import { PageHeader } from "@/components/page-header"
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([])
   const [permissions, setPermissions] = useState<Permission[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -36,9 +37,14 @@ export default function RolesPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const [r, p] = await Promise.all([roleApi.list(), permissionApi.list()])
+      const [r, p, u] = await Promise.all([
+        roleApi.list(),
+        permissionApi.list(),
+        userApi.list().catch(() => [] as User[]),
+      ])
       setRoles(r)
       setPermissions(p)
+      setUsers(u)
     } finally {
       setLoading(false)
     }
@@ -77,6 +83,7 @@ export default function RolesPage() {
       setAssignOpen(false)
       setSelectedRole(null)
       setSelectedPermissionId("")
+      await load()
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
@@ -86,6 +93,11 @@ export default function RolesPage() {
       setSubmitting(false)
     }
   }
+
+  const usersByRole = (roleId: number) => users.filter((u) => u.role_id === roleId).length
+
+  const availablePermissions = (role: Role) =>
+    permissions.filter((p) => !role.permissions.some((rp) => rp.id === p.id))
 
   return (
     <>
@@ -130,54 +142,74 @@ export default function RolesPage() {
         }
       />
 
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-16">ID</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead className="w-48 text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Cargando...
-                </TableCell>
-              </TableRow>
-            ) : roles.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  No hay roles
-                </TableCell>
-              </TableRow>
-            ) : (
-              roles.map((role) => (
-                <TableRow key={role.id}>
-                  <TableCell className="text-muted-foreground">{role.id}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{role.name}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Cargando...</p>
+      ) : roles.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center text-muted-foreground">
+            No hay roles. Crea el primero.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {roles.map((role) => {
+            const userCount = usersByRole(role.id)
+            return (
+              <Card key={role.id}>
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+                        <Shield className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold">{role.name}</h3>
+                          <span className="text-xs text-muted-foreground">#{role.id}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {userCount} {userCount === 1 ? "usuario" : "usuarios"} ·{" "}
+                          {role.permissions.length}{" "}
+                          {role.permissions.length === 1 ? "permiso" : "permisos"}
+                        </div>
+                      </div>
+                    </div>
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         setSelectedRole(role)
+                        setSelectedPermissionId("")
                         setAssignOpen(true)
                       }}
+                      disabled={availablePermissions(role).length === 0}
                     >
                       <Link2 className="h-4 w-4" />
                       Asignar permiso
                     </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                  </div>
+
+                  <Separator className="mb-4" />
+
+                  {role.permissions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">
+                      Este rol no tiene permisos asignados
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {role.permissions.map((p) => (
+                        <Badge key={p.id} variant="outline" className="font-mono text-xs">
+                          {p.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
 
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent>
@@ -185,7 +217,7 @@ export default function RolesPage() {
             <DialogHeader>
               <DialogTitle>Asignar permiso al rol "{selectedRole?.name}"</DialogTitle>
               <DialogDescription>
-                Selecciona el permiso que quieres añadir a este rol
+                Solo se muestran los permisos que aún no están asignados a este rol
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -199,11 +231,12 @@ export default function RolesPage() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="">Selecciona un permiso</option>
-                  {permissions.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
+                  {selectedRole &&
+                    availablePermissions(selectedRole).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
                 </select>
               </div>
             </div>
