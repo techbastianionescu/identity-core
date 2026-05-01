@@ -1,7 +1,7 @@
 services:
   api:
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8001:8000"
     environment:
       CORS_ORIGINS: https://identity.techbastian.com
   frontend:
