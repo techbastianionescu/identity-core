@@ -4,6 +4,10 @@ class PermissionCreate(BaseModel):
     name: str
     description: str | None = None
 
+class PermissionUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
 class PermissionResponse(BaseModel):
     id: int
     name: str
@@ -12,4 +16,4 @@ class PermissionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 class PermissionAssign(BaseModel):
-      permission_id: int
+    permission_id: int

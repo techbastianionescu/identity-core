@@ -6,12 +6,21 @@ from app.models.user import User
 from app.security.hashing import hash_password
 
 PERMISSIONS = [
-    ("roles:create", "Permite crear nuevos roles en el sistema"),
-    ("roles:read", "Permite consultar los roles existentes"),
-    ("permissions:create", "Permite crear nuevos permisos en el sistema"),
-    ("permissions:read", "Permite consultar los permisos existentes"),
     ("users:read", "Permite consultar la lista de usuarios"),
+    ("users:create", "Permite crear nuevos usuarios desde el panel"),
+    ("users:update", "Permite modificar los datos de un usuario"),
+    ("users:delete", "Permite eliminar un usuario del sistema"),
     ("users:assign_role", "Permite asignar un rol a un usuario"),
+    ("roles:read", "Permite consultar los roles existentes"),
+    ("roles:create", "Permite crear nuevos roles en el sistema"),
+    ("roles:update", "Permite modificar el nombre de un rol"),
+    ("roles:delete", "Permite eliminar un rol del sistema"),
+    ("roles:assign_permission", "Permite asignar permisos a un rol"),
+    ("roles:remove_permission", "Permite quitar permisos de un rol"),
+    ("permissions:read", "Permite consultar los permisos existentes"),
+    ("permissions:create", "Permite crear nuevos permisos en el sistema"),
+    ("permissions:update", "Permite modificar nombre o descripción de un permiso"),
+    ("permissions:delete", "Permite eliminar un permiso del sistema"),
 ]
 
 def seed_data():

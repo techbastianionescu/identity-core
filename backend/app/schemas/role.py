@@ -4,6 +4,9 @@ from app.schemas.permission import PermissionResponse
 class RoleCreate(BaseModel):
     name: str
 
+class RoleUpdate(BaseModel):
+    name: str
+
 class RoleResponse(BaseModel):
     id: int
     name: str
