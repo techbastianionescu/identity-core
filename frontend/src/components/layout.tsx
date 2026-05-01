@@ -34,7 +34,13 @@ export function Layout() {
 
   return (
     <div className="min-h-screen flex bg-background text-foreground">
-      <header className="lg:hidden fixed top-0 left-0 right-0 h-14 z-30 flex items-center justify-between px-4 bg-sidebar border-b border-border">
+      <header
+        className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 bg-sidebar border-b border-border"
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          height: "calc(3.5rem + env(safe-area-inset-top))",
+        }}
+      >
         <div className="flex items-center gap-2">
           <Fingerprint className="h-5 w-5 text-primary" />
           <span className="font-semibold">Identity Core</span>
@@ -63,6 +69,10 @@ export function Layout() {
           "lg:flex lg:translate-x-0 lg:top-0 lg:h-screen",
           mobileOpen ? "flex translate-x-0" : "hidden -translate-x-full lg:flex"
         )}
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
       >
         <div className="p-6 border-b border-border flex items-center gap-2">
           <Fingerprint className="h-6 w-6 text-primary" />
@@ -102,7 +112,7 @@ export function Layout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto pt-14 lg:pt-0">
+      <main className="flex-1 overflow-auto pt-[calc(3.5rem+env(safe-area-inset-top))] pb-[env(safe-area-inset-bottom)] lg:pt-0 lg:pb-0">
         <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
           <Outlet />
         </div>
