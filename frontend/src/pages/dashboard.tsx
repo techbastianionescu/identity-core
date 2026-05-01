@@ -1,143 +1,198 @@
 import { useEffect, useState } from "react"
-import { Users, Shield, Key, Sparkles } from "lucide-react"
+import { Users, Shield, Key, ArrowRight } from "lucide-react"
+import { Link } from "react-router-dom"
 import { permissionApi, roleApi, userApi } from "@/api/endpoints"
 import type { Permission, Role, User } from "@/types"
-import { useAuth } from "@/context/auth-context"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import { PageHeader } from "@/components/page-header"
+import { NoPermission } from "@/components/no-permission"
 
-export default function DashboardPage() {
-  const { user } = useAuth()
-  const [users, setUsers] = useState<User[]>([])
-  const [roles, setRoles] = useState<Role[]>([])
-  const [permissions, setPermissions] = useState<Permission[]>([])
+const PREVIEW_LIMIT = 5
+
+interface AsyncState<T> {
+  data: T
+  loading: boolean
+  forbidden: boolean
+}
+
+function useAsyncList<T>(loader: () => Promise<T[]>): AsyncState<T[]> {
+  const [data, setData] = useState<T[]>([])
   const [loading, setLoading] = useState(true)
+  const [forbidden, setForbidden] = useState(false)
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [u, r, p] = await Promise.all([
-          userApi.list(),
-          roleApi.list(),
-          permissionApi.list(),
-        ])
-        setUsers(u)
-        setRoles(r)
-        setPermissions(p)
-      } finally {
-        setLoading(false)
-      }
+    let cancelled = false
+    loader()
+      .then((d) => !cancelled && setData(d))
+      .catch((e) => {
+        if (cancelled) return
+        if (e?.response?.status === 403) setForbidden(true)
+      })
+      .finally(() => !cancelled && setLoading(false))
+    return () => {
+      cancelled = true
     }
-    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const myRole = roles.find((r) => r.id === user?.role_id) ?? null
-  const myPermissions = myRole?.permissions ?? []
-  const usersByRole = (roleId: number) => users.filter((u) => u.role_id === roleId).length
+  return { data, loading, forbidden }
+}
 
-  const stats = [
-    { label: "Usuarios", value: users.length, icon: Users },
-    { label: "Roles", value: roles.length, icon: Shield },
-    { label: "Permisos", value: permissions.length, icon: Key },
-  ]
+export default function DashboardPage() {
+  const usersState = useAsyncList<User>(() => userApi.list())
+  const rolesState = useAsyncList<Role>(() => roleApi.list())
+  const permissionsState = useAsyncList<Permission>(() => permissionApi.list())
+
+  const getRoleName = (roleId: number | null) => {
+    if (roleId === null) return null
+    return rolesState.data.find((r) => r.id === roleId)?.name ?? null
+  }
+
+  const usedPermissionIds = new Set(rolesState.data.flatMap((r) => r.permissions.map((p) => p.id)))
 
   return (
     <>
       <PageHeader title="Dashboard" description="Vista general del sistema" />
 
-      <Card className="mb-6 border-primary/20 bg-primary/5">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <CardTitle className="text-base">Bienvenido, {user?.username}</CardTitle>
-          </div>
-          <CardDescription>
-            {myRole ? (
-              <>
-                Tu rol es <span className="text-foreground font-medium">{myRole.name}</span> ·{" "}
-                {myPermissions.length} {myPermissions.length === 1 ? "permiso" : "permisos"}
-              </>
-            ) : (
-              "No tienes ningún rol asignado"
-            )}
-          </CardDescription>
-        </CardHeader>
-      </Card>
-
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 mb-6">
-        {stats.map(({ label, value, icon: Icon }) => (
-          <Card key={label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-              <Icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold">
-                {loading ? <span className="text-muted-foreground">…</span> : value}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Roles del sistema</CardTitle>
-            <CardDescription>Roles definidos y permisos que agrupan</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {loading ? (
-              <p className="text-sm text-muted-foreground">Cargando...</p>
-            ) : roles.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay roles</p>
-            ) : (
-              roles.map((role) => (
-                <div
-                  key={role.id}
-                  className="flex items-center justify-between p-3 rounded-md border border-border bg-card"
-                >
-                  <div className="flex items-center gap-3">
-                    <Badge variant="secondary">{role.name}</Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {usersByRole(role.id)} {usersByRole(role.id) === 1 ? "usuario" : "usuarios"}
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {role.permissions.length}{" "}
-                    {role.permissions.length === 1 ? "permiso" : "permisos"}
-                  </span>
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
+        <DashboardCard
+          label="Usuarios"
+          icon={Users}
+          state={usersState}
+          link="/users"
+          linkLabel="Ver todos los usuarios"
+          renderItem={(u) => {
+            const roleName = getRoleName(u.role_id)
+            return (
+              <div key={u.id} className="flex items-center justify-between gap-2 text-sm">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${u.is_active ? "bg-emerald-500" : "bg-zinc-500"}`}
+                  />
+                  <span className="font-medium truncate">{u.username}</span>
                 </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Tus permisos</CardTitle>
-            <CardDescription>Acciones que puedes realizar a través de tu rol</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p className="text-sm text-muted-foreground">Cargando...</p>
-            ) : myPermissions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {myRole ? "Tu rol no tiene permisos asignados" : "Necesitas un rol para tener permisos"}
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {myPermissions.map((p) => (
-                  <Badge key={p.id} variant="outline" className="font-mono text-xs">
-                    {p.name}
+                {roleName ? (
+                  <Badge variant="secondary" className="text-xs shrink-0">
+                    {roleName}
                   </Badge>
-                ))}
+                ) : (
+                  <span className="text-xs text-muted-foreground shrink-0">Sin rol</span>
+                )}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            )
+          }}
+        />
+
+        <DashboardCard
+          label="Roles"
+          icon={Shield}
+          state={rolesState}
+          link="/roles"
+          linkLabel="Ver todos los roles"
+          renderItem={(r) => {
+            const userCount = usersState.data.filter((u) => u.role_id === r.id).length
+            return (
+              <div key={r.id} className="flex items-center justify-between gap-2 text-sm">
+                <Badge variant="secondary" className="shrink-0">
+                  {r.name}
+                </Badge>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {r.permissions.length} {r.permissions.length === 1 ? "permiso" : "permisos"} ·{" "}
+                  {userCount} {userCount === 1 ? "usuario" : "usuarios"}
+                </span>
+              </div>
+            )
+          }}
+        />
+
+        <DashboardCard
+          label="Permisos"
+          icon={Key}
+          state={permissionsState}
+          link="/permissions"
+          linkLabel="Ver todos los permisos"
+          renderItem={(p) => {
+            const inUse = usedPermissionIds.has(p.id)
+            return (
+              <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
+                <span className="font-mono text-xs truncate">{p.name}</span>
+                <span
+                  className={`text-xs shrink-0 ${
+                    inUse ? "text-emerald-500" : "text-muted-foreground"
+                  }`}
+                >
+                  {inUse ? "En uso" : "Sin uso"}
+                </span>
+              </div>
+            )
+          }}
+        />
       </div>
     </>
+  )
+}
+
+interface DashboardCardProps<T> {
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  state: AsyncState<T[]>
+  link: string
+  linkLabel: string
+  renderItem: (item: T) => React.ReactNode
+}
+
+function DashboardCard<T>({
+  label,
+  icon: Icon,
+  state,
+  link,
+  linkLabel,
+  renderItem,
+}: DashboardCardProps<T>) {
+  const { data, loading, forbidden } = state
+  const preview = data.slice(0, PREVIEW_LIMIT)
+
+  return (
+    <Card className="flex flex-col">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent className="flex-1 flex flex-col">
+        {forbidden ? (
+          <NoPermission />
+        ) : (
+          <>
+            <div className="text-4xl font-semibold mb-4">
+              {loading ? <span className="text-muted-foreground">…</span> : data.length}
+            </div>
+            <Separator className="mb-3" />
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Cargando...</p>
+            ) : data.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">Sin elementos</p>
+            ) : (
+              <div className="space-y-2 flex-1">
+                {preview.map(renderItem)}
+                {data.length > PREVIEW_LIMIT && (
+                  <p className="text-xs text-muted-foreground pt-1">
+                    + {data.length - PREVIEW_LIMIT} más
+                  </p>
+                )}
+              </div>
+            )}
+            <Link
+              to={link}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-4"
+            >
+              {linkLabel}
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }

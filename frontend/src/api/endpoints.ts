@@ -21,7 +21,17 @@ export const userApi = {
     const { data } = await api.post<User>("/users/register", { username, email, password })
     return data
   },
-  assignRole: async (userId: number, roleId: number): Promise<User> => {
+  update: async (
+    userId: number,
+    payload: { username?: string; email?: string; is_active?: boolean }
+  ): Promise<User> => {
+    const { data } = await api.put<User>(`/users/${userId}`, payload)
+    return data
+  },
+  remove: async (userId: number): Promise<void> => {
+    await api.delete(`/users/${userId}`)
+  },
+  assignRole: async (userId: number, roleId: number | null): Promise<User> => {
     const { data } = await api.patch<User>(`/users/${userId}/role`, { role_id: roleId })
     return data
   },
@@ -36,6 +46,13 @@ export const roleApi = {
     const { data } = await api.post<Role>("/roles/", { name })
     return data
   },
+  update: async (roleId: number, name: string): Promise<Role> => {
+    const { data } = await api.put<Role>(`/roles/${roleId}`, { name })
+    return data
+  },
+  remove: async (roleId: number): Promise<void> => {
+    await api.delete(`/roles/${roleId}`)
+  },
 }
 
 export const permissionApi = {
@@ -47,11 +64,24 @@ export const permissionApi = {
     const { data } = await api.post<Permission>("/permissions/", { name, description })
     return data
   },
+  update: async (
+    permissionId: number,
+    payload: { name?: string; description?: string | null }
+  ): Promise<Permission> => {
+    const { data } = await api.put<Permission>(`/permissions/${permissionId}`, payload)
+    return data
+  },
+  remove: async (permissionId: number): Promise<void> => {
+    await api.delete(`/permissions/${permissionId}`)
+  },
   assignToRole: async (roleId: number, permissionId: number): Promise<Permission> => {
     const { data } = await api.post<Permission>(
       `/permissions/roles/${roleId}/assign`,
       { permission_id: permissionId }
     )
     return data
+  },
+  removeFromRole: async (roleId: number, permissionId: number): Promise<void> => {
+    await api.delete(`/permissions/roles/${roleId}/${permissionId}`)
   },
 }

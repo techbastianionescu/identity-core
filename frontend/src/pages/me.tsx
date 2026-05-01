@@ -32,9 +32,9 @@ export default function MePage() {
     <>
       <PageHeader title="Mi perfil" description="Datos de tu cuenta y permisos" />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardContent className="p-6 space-y-6">
+      <div className="grid gap-4 lg:grid-cols-3 lg:h-[600px]">
+        <Card className="lg:col-span-2 overflow-hidden">
+          <CardContent className="p-6 space-y-6 overflow-y-auto h-full">
             <div className="flex items-center gap-4">
               <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
                 <UserCircle className="h-8 w-8 text-primary" />
@@ -94,8 +94,8 @@ export default function MePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className="flex flex-col overflow-hidden">
+          <CardHeader className="shrink-0">
             <div className="flex items-center gap-2">
               <Key className="h-4 w-4 text-primary" />
               <CardTitle className="text-base">Permisos efectivos</CardTitle>
@@ -106,7 +106,7 @@ export default function MePage() {
                 : "Necesitas un rol para tener permisos"}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1 overflow-y-auto">
             {myPermissions.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">
                 {myRole ? "Tu rol no tiene permisos" : "Sin rol asignado"}

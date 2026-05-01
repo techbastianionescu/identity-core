@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { Plus, Link2, Shield } from "lucide-react"
+import { Plus, Link2, Shield, Pencil, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { permissionApi, roleApi, userApi } from "@/api/endpoints"
 import type { Permission, Role, User } from "@/types"
+import { usePermissions } from "@/hooks/use-permissions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,32 +20,53 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { PageHeader } from "@/components/page-header"
+import { NoPermission } from "@/components/no-permission"
 
 export default function RolesPage() {
+  const { can } = usePermissions()
   const [roles, setRoles] = useState<Role[]>([])
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
+  const [forbidden, setForbidden] = useState(false)
 
   const [createOpen, setCreateOpen] = useState(false)
-  const [name, setName] = useState("")
-  const [submitting, setSubmitting] = useState(false)
+  const [createName, setCreateName] = useState("")
+
+  const [editOpen, setEditOpen] = useState(false)
+  const [editing, setEditing] = useState<Role | null>(null)
+  const [editName, setEditName] = useState("")
+
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState<Role | null>(null)
 
   const [assignOpen, setAssignOpen] = useState(false)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [selectedPermissionId, setSelectedPermissionId] = useState<string>("")
 
+  const [submitting, setSubmitting] = useState(false)
+
+  const errorMessage = (e: unknown) =>
+    (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "Error inesperado"
+
   const load = async () => {
     setLoading(true)
     try {
-      const [r, p, u] = await Promise.all([
-        roleApi.list(),
-        permissionApi.list(),
-        userApi.list().catch(() => [] as User[]),
-      ])
+      const r = await roleApi.list()
       setRoles(r)
-      setPermissions(p)
-      setUsers(u)
+      try {
+        setPermissions(await permissionApi.list())
+      } catch {
+        setPermissions([])
+      }
+      try {
+        setUsers(await userApi.list())
+      } catch {
+        setUsers([])
+      }
+    } catch (e) {
+      const status = (e as { response?: { status?: number } })?.response?.status
+      if (status === 403) setForbidden(true)
     } finally {
       setLoading(false)
     }
@@ -58,16 +80,57 @@ export default function RolesPage() {
     e.preventDefault()
     setSubmitting(true)
     try {
-      await roleApi.create(name)
+      await roleApi.create(createName)
       toast.success("Rol creado")
-      setName("")
+      setCreateName("")
       setCreateOpen(false)
       await load()
-    } catch (error: unknown) {
-      const message =
-        (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        "Error creando rol"
-      toast.error(message)
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const openEdit = (role: Role) => {
+    setEditing(role)
+    setEditName(role.name)
+    setEditOpen(true)
+  }
+
+  const handleEdit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!editing) return
+    setSubmitting(true)
+    try {
+      await roleApi.update(editing.id, editName)
+      toast.success("Rol actualizado")
+      setEditOpen(false)
+      setEditing(null)
+      await load()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const openDelete = (role: Role) => {
+    setDeleting(role)
+    setDeleteOpen(true)
+  }
+
+  const handleDelete = async () => {
+    if (!deleting) return
+    setSubmitting(true)
+    try {
+      await roleApi.remove(deleting.id)
+      toast.success("Rol eliminado")
+      setDeleteOpen(false)
+      setDeleting(null)
+      await load()
+    } catch (err) {
+      toast.error(errorMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -84,13 +147,20 @@ export default function RolesPage() {
       setSelectedRole(null)
       setSelectedPermissionId("")
       await load()
-    } catch (error: unknown) {
-      const message =
-        (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        "Error asignando permiso"
-      toast.error(message)
+    } catch (err) {
+      toast.error(errorMessage(err))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleRemovePermission = async (role: Role, permissionId: number) => {
+    try {
+      await permissionApi.removeFromRole(role.id, permissionId)
+      toast.success("Permiso quitado")
+      await load()
+    } catch (err) {
+      toast.error(errorMessage(err))
     }
   }
 
@@ -105,44 +175,50 @@ export default function RolesPage() {
         title="Roles"
         description="Agrupan permisos y se asignan a usuarios"
         actions={
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4" />
-                Nuevo rol
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <form onSubmit={handleCreate}>
-                <DialogHeader>
-                  <DialogTitle>Crear rol</DialogTitle>
-                  <DialogDescription>El nombre debe ser único en el sistema</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nombre</Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="editor"
-                      required
-                      autoFocus
-                    />
+          can("roles:create") && (
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4" />
+                  Nuevo rol
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <form onSubmit={handleCreate}>
+                  <DialogHeader>
+                    <DialogTitle>Crear rol</DialogTitle>
+                    <DialogDescription>El nombre debe ser único en el sistema</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Nombre</Label>
+                      <Input
+                        id="name"
+                        value={createName}
+                        onChange={(e) => setCreateName(e.target.value)}
+                        placeholder="editor"
+                        required
+                        autoFocus
+                      />
+                    </div>
                   </div>
-                </div>
-                <DialogFooter>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? "Creando..." : "Crear"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <DialogFooter>
+                    <Button type="submit" disabled={submitting}>
+                      {submitting ? "Creando..." : "Crear"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )
         }
       />
 
-      {loading ? (
+      {forbidden ? (
+        <Card>
+          <NoPermission />
+        </Card>
+      ) : loading ? (
         <p className="text-sm text-muted-foreground">Cargando...</p>
       ) : roles.length === 0 ? (
         <Card>
@@ -174,19 +250,38 @@ export default function RolesPage() {
                         </div>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedRole(role)
-                        setSelectedPermissionId("")
-                        setAssignOpen(true)
-                      }}
-                      disabled={availablePermissions(role).length === 0}
-                    >
-                      <Link2 className="h-4 w-4" />
-                      Asignar permiso
-                    </Button>
+                    <div className="flex gap-1">
+                      {can("roles:assign_permission") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedRole(role)
+                            setSelectedPermissionId("")
+                            setAssignOpen(true)
+                          }}
+                          disabled={availablePermissions(role).length === 0}
+                        >
+                          <Link2 className="h-4 w-4" />
+                          Asignar permiso
+                        </Button>
+                      )}
+                      {can("roles:update") && (
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(role)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {can("roles:delete") && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openDelete(role)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   <Separator className="mb-4" />
@@ -198,8 +293,21 @@ export default function RolesPage() {
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {role.permissions.map((p) => (
-                        <Badge key={p.id} variant="outline" className="font-mono text-xs">
+                        <Badge
+                          key={p.id}
+                          variant="outline"
+                          className="font-mono text-xs gap-1 pr-1"
+                        >
                           {p.name}
+                          {can("roles:remove_permission") && (
+                            <button
+                              onClick={() => handleRemovePermission(role, p.id)}
+                              className="ml-1 rounded hover:bg-destructive/20 hover:text-destructive p-0.5 transition-colors"
+                              title="Quitar permiso"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
                         </Badge>
                       ))}
                     </div>
@@ -246,6 +354,54 @@ export default function RolesPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <form onSubmit={handleEdit}>
+            <DialogHeader>
+              <DialogTitle>Editar rol</DialogTitle>
+              <DialogDescription>El nombre debe ser único en el sistema</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Nombre</Label>
+                <Input
+                  id="edit-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Guardando..." : "Guardar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar rol</DialogTitle>
+            <DialogDescription>
+              ¿Seguro que quieres eliminar el rol{" "}
+              <code className="text-foreground">{deleting?.name}</code>? Si hay usuarios con este
+              rol, la operación fallará.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={submitting}>
+              {submitting ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
