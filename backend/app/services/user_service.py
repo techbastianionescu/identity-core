@@ -18,6 +18,9 @@ def create_user(db: Session, user_data: UserCreate) -> User:
     db.refresh(db_user)
     return db_user
 
+def get_users(db: Session) -> list[User]:
+    return db.query(User).all()
+
 def assign_role(db: Session, user_id: int, role_id: int) -> User:
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
