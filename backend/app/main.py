@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers.user_router import router as user_router
@@ -12,9 +13,12 @@ Base.metadata.create_all(bind=engine)
 seed_data()
 app = FastAPI()
 
+cors_origins_env = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+allow_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -27,4 +31,4 @@ app.include_router(permission_router, prefix="/permissions")
 
 @app.get("/health")
 def health():
-    return{"status":"OK"}
+    return {"status": "OK"}

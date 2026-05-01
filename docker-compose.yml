@@ -23,8 +23,6 @@ services:
       POSTGRES_USER: techbastian
       POSTGRES_PASSWORD: iDgUjy*WZ*Lf0&
       POSTGRES_DB: identitydb
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
