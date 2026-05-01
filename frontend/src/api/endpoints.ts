@@ -13,6 +13,10 @@ export const userApi = {
     const { data } = await api.get<User>("/users/me")
     return data
   },
+  list: async (): Promise<User[]> => {
+    const { data } = await api.get<User[]>("/users/")
+    return data
+  },
   register: async (username: string, email: string, password: string): Promise<User> => {
     const { data } = await api.post<User>("/users/register", { username, email, password })
     return data

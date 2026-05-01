@@ -1,3 +1,181 @@
+import { useEffect, useState, type FormEvent } from "react"
+import { Shield } from "lucide-react"
+import { toast } from "sonner"
+import { roleApi, userApi } from "@/api/endpoints"
+import type { Role, User } from "@/types"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { PageHeader } from "@/components/page-header"
+
 export default function UsersPage() {
-  return <div>Usuarios</div>
+  const [users, setUsers] = useState<User[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const [assignOpen, setAssignOpen] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [selectedRoleId, setSelectedRoleId] = useState<string>("")
+  const [submitting, setSubmitting] = useState(false)
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const [u, r] = await Promise.all([userApi.list(), roleApi.list()])
+      setUsers(u)
+      setRoles(r)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const getRoleName = (roleId: number | null) => {
+    if (roleId === null) return null
+    return roles.find((r) => r.id === roleId)?.name ?? `id:${roleId}`
+  }
+
+  const handleAssign = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!selectedUser || !selectedRoleId) return
+    setSubmitting(true)
+    try {
+      await userApi.assignRole(selectedUser.id, parseInt(selectedRoleId))
+      toast.success("Rol asignado al usuario")
+      setAssignOpen(false)
+      setSelectedUser(null)
+      setSelectedRoleId("")
+      await load()
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        "Error asignando rol"
+      toast.error(message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      <PageHeader title="Usuarios" description="Lista de usuarios registrados en el sistema" />
+
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-16">ID</TableHead>
+              <TableHead>Usuario</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Rol</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="w-40 text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  Cargando...
+                </TableCell>
+              </TableRow>
+            ) : users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  No hay usuarios
+                </TableCell>
+              </TableRow>
+            ) : (
+              users.map((u) => {
+                const roleName = getRoleName(u.role_id)
+                return (
+                  <TableRow key={u.id}>
+                    <TableCell className="text-muted-foreground">{u.id}</TableCell>
+                    <TableCell className="font-medium">{u.username}</TableCell>
+                    <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                    <TableCell>
+                      {roleName ? (
+                        <Badge variant="secondary">{roleName}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Sin rol</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={u.is_active ? "default" : "outline"}>
+                        {u.is_active ? "Activo" : "Inactivo"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedUser(u)
+                          setSelectedRoleId(u.role_id?.toString() ?? "")
+                          setAssignOpen(true)
+                        }}
+                      >
+                        <Shield className="h-4 w-4" />
+                        Asignar rol
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+
+      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+        <DialogContent>
+          <form onSubmit={handleAssign}>
+            <DialogHeader>
+              <DialogTitle>Asignar rol a "{selectedUser?.username}"</DialogTitle>
+              <DialogDescription>
+                Selecciona el rol que quieres asignar a este usuario
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="role">Rol</Label>
+                <select
+                  id="role"
+                  value={selectedRoleId}
+                  onChange={(e) => setSelectedRoleId(e.target.value)}
+                  required
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecciona un rol</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={submitting || !selectedRoleId}>
+                {submitting ? "Asignando..." : "Asignar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
 }
