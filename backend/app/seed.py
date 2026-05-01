@@ -6,12 +6,12 @@ from app.models.user import User
 from app.security.hashing import hash_password
 
 PERMISSIONS = [
-    "roles:create",
-    "roles:read",
-    "permissions:create",
-    "permissions:read",
-    "users:read",
-    "users:assign_role",
+    ("roles:create", "Permite crear nuevos roles en el sistema"),
+    ("roles:read", "Permite consultar los roles existentes"),
+    ("permissions:create", "Permite crear nuevos permisos en el sistema"),
+    ("permissions:read", "Permite consultar los permisos existentes"),
+    ("users:read", "Permite consultar la lista de usuarios"),
+    ("users:assign_role", "Permite asignar un rol a un usuario"),
 ]
 
 def seed_data():
@@ -24,13 +24,15 @@ def seed_data():
             db.commit()
             db.refresh(role)
 
-        for perm_name in PERMISSIONS:
+        for perm_name, perm_description in PERMISSIONS:
             permission = db.query(Permission).filter(Permission.name == perm_name).first()
             if permission is None:
-                permission = Permission(name=perm_name)
+                permission = Permission(name=perm_name, description=perm_description)
                 db.add(permission)
                 db.commit()
                 db.refresh(permission)
+            elif permission.description != perm_description:
+                permission.description = perm_description
             if permission not in role.permissions:
                 role.permissions.append(permission)
 
