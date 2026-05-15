@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { PageHeader } from "@/components/page-header"
 import { NoPermission } from "@/components/no-permission"
+import { errorMessage } from "@/lib/utils"
 
 export default function RolesPage() {
   const { can } = usePermissions()
@@ -45,9 +46,6 @@ export default function RolesPage() {
   const [selectedPermissionId, setSelectedPermissionId] = useState<string>("")
 
   const [submitting, setSubmitting] = useState(false)
-
-  const errorMessage = (e: unknown) =>
-    (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "Error inesperado"
 
   const load = async () => {
     setLoading(true)
