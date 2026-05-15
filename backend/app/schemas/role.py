@@ -15,4 +15,4 @@ class RoleResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 class RoleAssign(BaseModel):
-    role_id: int
+    role_id: int | None = None
